@@ -1,11 +1,12 @@
+# ── Python artifacts ──────────────────────────────────────────────
 __pycache__/
 *.py[cod]
+*.pyo
+*.pyd
 *$py.class
 *.so
 .Python
-env/
 build/
-develop-eggs/
 dist/
 downloads/
 eggs/
@@ -15,19 +16,80 @@ lib64/
 parts/
 sdist/
 var/
+develop-eggs/
 *.egg-info/
 .installed.cfg
 *.egg
+
+# ── Virtual environments ──────────────────────────────────────────
+.venv/
 venv/
 ENV/
-.idea/
+env/
+
+# ── Secrets & configs (keep .env.example tracked) ─────────────────
+.env
+.env.local
+.env.*.local
+.streamlit/secrets.toml
+# tracked: .env.example, .streamlit/secrets.toml.example
+
+# ── macOS ─────────────────────────────────────────────────────────
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+
+# ── Editor & workspace metadata ───────────────────────────────────
+.zed/
 .vscode/
+!.vscode/tasks.json
+.idea/
 *.swp
 *.swo
-.env
-.streamlit/secrets.toml
+*.sublime-workspace
+
+# ── Agent tooling / linter caches ─────────────────────────────────
+.opencode/
+.cline/
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+.basedpyright/
+.pyright/
+
+# ── Data & vector artifacts ───────────────────────────────────────
+tmp/
+temp/
+scratch/
+scraped/
+saved_articles/
 chroma_db_data/
 local_embeddings/
-saved_articles/
+index_checkpoints/
+# raw document scratchpads / temporary scrape outputs
+tmp/*.pdf
+tmp/*.docx
+tmp/*.csv
+temp/*.pdf
+temp/*.docx
+temp/*.csv
+scratch/*.pdf
+scratch/*.docx
+scratch/*.csv
+scraped/*.pdf
+scraped/*.docx
+scraped/*.csv
+*.checkpoint
 .dockerignore
-
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+.DS_Store
+.env
+.streamlit/secrets.toml
+.zed/

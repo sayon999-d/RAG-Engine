@@ -261,11 +261,11 @@ Expected output includes a `Shape: (384,)` line and a preview of the first embed
 All limits are configurable at the top of `main.py`:
 
 ```python
-MAX_QUESTION_LENGTH = 1000       # Max characters per question
-MAX_GROQ_TOKENS = 512            # Max output tokens per LLM response
-MAX_QUESTIONS_PER_SESSION = 30   # Rate limit per session
-MAX_FILE_UPLOAD_MB = 10          # Max upload file size
-MAX_FILE_CONTENT_CHARS = 50000   # Truncate file content to save tokens
+MAX_QUESTION_LENGTH = 1000  # Max characters per question
+MAX_GROQ_TOKENS = 512  # Max output tokens per LLM response
+MAX_QUESTIONS_PER_SESSION = 30  # Rate limit per session
+MAX_FILE_UPLOAD_MB = 10  # Max upload file size
+MAX_FILE_CONTENT_CHARS = 50000  # Truncate file content to save tokens
 ```
 
 To use a different LLM model, set the `GROQ_MODEL` environment variable:

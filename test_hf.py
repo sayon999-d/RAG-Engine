@@ -1,4 +1,5 @@
 import os
+
 from dotenv import load_dotenv
 from huggingface_hub import InferenceClient
 
@@ -11,7 +12,9 @@ client = InferenceClient(token=API_KEY)
 
 print("\nTesting embedding...")
 try:
-    result = client.feature_extraction("Hello world, this is a test.", model="sentence-transformers/all-MiniLM-L6-v2")
+    result = client.feature_extraction(
+        "Hello world, this is a test.", model="sentence-transformers/all-MiniLM-L6-v2"
+    )
     print(f"Success! Shape: {result.shape}")
     if len(result.shape) == 1:
         preview = result[:5]

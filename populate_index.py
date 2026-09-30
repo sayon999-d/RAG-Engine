@@ -1,26 +1,28 @@
-import os
+#!/usr/bin/env python3
+"""
+Enhanced index population script using the new ingestion pipeline.
+Supports multi-format documents, web scraping, and parent-child chunking.
+"""
+
 import logging
-import time
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent))
+
 from dotenv import load_dotenv
-from langchain_pinecone import PineconeVectorStore
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_community.document_loaders import WebBaseLoader
-from pinecone import Pinecone, ServerlessSpec
+
 from hf_embeddings import HuggingFaceAPIEmbeddings
+from src.config import get_config
+from src.ingestion import create_ingestion_pipeline
+from src.retrieval import create_pinecone_client
 
 load_dotenv()
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger(__name__)
 
-os.environ["USER_AGENT"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-
-HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY")
-PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
-PINECONE_INDEX_NAME = os.getenv("PINECONE_INDEX_NAME", "rag-chatbot")
-EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
-UPLOAD_BATCH_SIZE = int(os.getenv("UPLOAD_BATCH_SIZE", "40"))
-EMBEDDING_WORKERS = int(os.getenv("EMBEDDING_WORKERS", "4"))
-RETRY_DELAY_SECONDS = float(os.getenv("UPLOAD_RETRY_DELAY_SECONDS", "5"))
 
 URL_LIST = [
     # AMD Radeon (Official Product & Tech Pages)
@@ -35,22 +37,17 @@ URL_LIST = [
     "https://www.amd.com/en/support",
     "https://www.amd.com/en/technologies/rdna3",
     "https://pg.asrock.com/Graphics-Card/AMD/Radeon%20RX%207900%20XTX%20Phantom%20Gaming%2024GB%20OC/index.asp",
-
     # Microsoft DirectML
     "https://learn.microsoft.com/en-us/windows/ai/directml/dml",
     "https://learn.microsoft.com/en-us/windows/ai/directml/dml-get-started",
     "https://learn.microsoft.com/en-us/windows/ai/directml/dml-ops",
-
     # ONNX Runtime
     "https://onnxruntime.ai/docs/",
     "https://onnxruntime.ai/docs/execution-providers/DirectML-ExecutionProvider.html",
-
     # ROCm
     "https://rocm.docs.amd.com/en/latest/compatibility/compatibility-matrix.html",
-
     # Stable Diffusion on AMD / DirectML
     "https://github.com/microsoft/Stable-Diffusion-WebUI-DirectML",
-
     # Developer Docs & Benchmarks
     "https://learn.microsoft.com/en-us/windows/ai/windows-ml/",
     "https://www.club386.com/nvidia-geforce-rtx-5080-vs-amd-radeon-rx-7900-xtx/",
@@ -66,92 +63,81 @@ URL_LIST = [
 
 
 def main():
-    if not HUGGINGFACE_API_KEY:
+    config = get_config()
+
+    if not config.embedding.api_key:
         raise ValueError("HUGGINGFACE_API_KEY not set in .env")
-    if not PINECONE_API_KEY:
+    if not config.pinecone.api_key:
         raise ValueError("PINECONE_API_KEY not set in .env")
 
-    logger.info("Connecting to Pinecone...")
-    pc = Pinecone(api_key=PINECONE_API_KEY)
-
-    existing_indexes = [idx.name for idx in pc.list_indexes()]
-    if PINECONE_INDEX_NAME not in existing_indexes:
-        logger.info(f"Creating index '{PINECONE_INDEX_NAME}'...")
-        pc.create_index(
-            name=PINECONE_INDEX_NAME,
-            dimension=384, 
-            metric="cosine",
-            spec=ServerlessSpec(cloud="aws", region="us-east-1")
-        )
-        logger.info("Index created. Waiting for it to be ready...")
-    else:
-        logger.info(f"Index '{PINECONE_INDEX_NAME}' already exists.")
-
-    logger.info("Setting up embeddings...")
+    logger.info("Initializing embeddings...")
     embeddings = HuggingFaceAPIEmbeddings(
-        api_key=HUGGINGFACE_API_KEY,
-        model_name=EMBEDDING_MODEL,
-        max_workers=EMBEDDING_WORKERS,
+        api_key=config.embedding.api_key,
+        model_name=config.embedding.model_name,
+        max_workers=config.embedding.max_workers,
+        max_retries=config.embedding.max_retries,
+        retry_delay=config.embedding.retry_delay,
     )
 
-    logger.info(f"Scraping {len(URL_LIST)} URLs...")
-    loader = WebBaseLoader(URL_LIST)
-    raw_docs = loader.load()
-    logger.info(f"Loaded {len(raw_docs)} documents.")
-
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1000,
-        chunk_overlap=100
-    )
-    split_docs = text_splitter.split_documents(raw_docs)
-    logger.info(f"Split into {len(split_docs)} chunks.")
-
-    logger.info("Uploading to Pinecone in batches...")
-    os.environ["PINECONE_API_KEY"] = PINECONE_API_KEY
-
-    vectorstore = PineconeVectorStore(
-        index_name=PINECONE_INDEX_NAME,
-        embedding=embeddings
+    logger.info("Connecting to Pinecone...")
+    pinecone_client = create_pinecone_client(
+        api_key=config.pinecone.api_key,
+        index_name=config.pinecone.index_name,
+        embeddings=embeddings,
+        dimension=config.pinecone.dimension,
+        metric=config.pinecone.metric,
+        cloud=config.pinecone.cloud,
+        region=config.pinecone.region,
     )
 
-    total = len(split_docs)
-    uploaded = 0
+    pinecone_client.ensure_index_exists()
 
-    logger.info(
-        "Using upload batch size %s with %s embedding workers.",
-        UPLOAD_BATCH_SIZE,
-        EMBEDDING_WORKERS,
+    logger.info("Creating ingestion pipeline...")
+    ingestion = create_ingestion_pipeline(
+        child_chunk_size=config.chunking.child_chunk_size,
+        child_chunk_overlap=config.chunking.child_chunk_overlap,
+        parent_chunk_size=config.chunking.parent_chunk_size,
+        parent_chunk_overlap=config.chunking.parent_chunk_overlap,
+        default_namespace=config.pinecone.namespace,
     )
 
-    for i in range(0, total, UPLOAD_BATCH_SIZE):
-        batch = split_docs[i:i + UPLOAD_BATCH_SIZE]
+    total_parent_chunks = 0
+    total_child_chunks = 0
+
+    logger.info(f"Processing {len(URL_LIST)} URLs...")
+    for url in URL_LIST:
         try:
-            vectorstore.add_documents(
-                batch,
-                batch_size=UPLOAD_BATCH_SIZE,
-                embedding_chunk_size=UPLOAD_BATCH_SIZE,
-                async_req=True,
-            )
-            uploaded += len(batch)
-            logger.info(f"  Uploaded {uploaded}/{total} chunks")
-        except Exception as e:
-            logger.error(f"  Error on batch {i}-{i+len(batch)}: {e}")
-            logger.info("  Retrying after %.1fs...", RETRY_DELAY_SECONDS)
-            time.sleep(RETRY_DELAY_SECONDS)
-            try:
-                vectorstore.add_documents(
-                    batch,
-                    batch_size=UPLOAD_BATCH_SIZE,
-                    embedding_chunk_size=UPLOAD_BATCH_SIZE,
-                    async_req=True,
-                )
-                uploaded += len(batch)
-                logger.info(f"  Retry success. {uploaded}/{total} chunks")
-            except Exception as e2:
-                logger.error(f"  Skipping batch: {e2}")
+            logger.info(f"Scraping: {url}")
+            result = ingestion.ingest_url(url, namespace=config.pinecone.namespace)
 
-    logger.info(f"Done! {uploaded}/{total} chunks uploaded to '{PINECONE_INDEX_NAME}'.")
-    logger.info("Your Pinecone index is now populated. You can deploy the main app.")
+            if result.success:
+                docs = ingestion.get_pinecone_documents_from_url(
+                    url, namespace=config.pinecone.namespace
+                )
+                uploaded = pinecone_client.upsert_documents(
+                    docs,
+                    namespace=config.pinecone.namespace,
+                    batch_size=50,
+                )
+                total_parent_chunks += result.parent_chunks
+                total_child_chunks += result.child_chunks
+                logger.info(
+                    f"  ✓ Uploaded {uploaded} child chunks ({result.parent_chunks} parents)"
+                )
+            else:
+                logger.error(f"  ✗ Failed: {result.error}")
+
+        except Exception as e:
+            logger.error(f"  ✗ Error processing {url}: {e}")
+
+    logger.info("=" * 50)
+    logger.info("Population Complete!")
+    logger.info(f"  Total Parent Chunks: {total_parent_chunks}")
+    logger.info(f"  Total Child Chunks: {total_child_chunks}")
+    logger.info(f"  Namespace: {config.pinecone.namespace}")
+    logger.info(f"  Index: {config.pinecone.index_name}")
+    logger.info("=" * 50)
+    logger.info("Run 'streamlit run main.py' to start the app.")
 
 
 if __name__ == "__main__":
