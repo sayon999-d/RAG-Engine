@@ -161,7 +161,7 @@ Create a `.env` file:
 GROQ_API_KEY=gsk_your_key_here
 HUGGINGFACE_API_KEY=hf_your_key_here
 PINECONE_API_KEY=pcsk_your_key_here
-PINECONE_INDEX_NAME=rag-chatbot
+PINECONE_INDEX_NAME=rag1
 ```
 
 ### 3. Populate the Vector Store (One-Time)
@@ -214,7 +214,7 @@ In the Streamlit Cloud dashboard → **Settings** → **Secrets**, paste:
 GROQ_API_KEY = "gsk_your_actual_key"
 HUGGINGFACE_API_KEY = "hf_your_actual_key"
 PINECONE_API_KEY = "pcsk_your_actual_key"
-PINECONE_INDEX_NAME = "rag-chatbot"
+PINECONE_INDEX_NAME = "rag1"
 ```
 
 ### Step 4: Deploy

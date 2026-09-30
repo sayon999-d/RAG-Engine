@@ -33,7 +33,7 @@ class EmbeddingConfig:
 @dataclass
 class PineconeConfig:
     api_key: str | None = None
-    index_name: str = "rag-chatbot"
+    index_name: str = "rag1"
     namespace: str = "default"
     dimension: int = 384
     metric: str = "cosine"
@@ -43,7 +43,7 @@ class PineconeConfig:
     def __post_init__(self):
         self.api_key = self.api_key or get_secret("PINECONE_API_KEY")
         self.index_name = self.index_name or get_secret(
-            "PINECONE_INDEX_NAME", "rag-chatbot"
+            "PINECONE_INDEX_NAME", "rag1"
         )
 
 

@@ -5,7 +5,16 @@ from typing import Any
 from langchain.docstore.document import Document
 from langchain_core.embeddings import Embeddings
 from langchain_pinecone import PineconeVectorStore
-from pinecone import Index, Pinecone, ServerlessSpec
+from pinecone import Pinecone, ServerlessSpec
+
+try:
+    # pinecone < 7 exposes Index at the package top level
+    from pinecone import Index
+except ImportError:  # pinecone >= 7 moved it to pinecone.db_data.index
+    try:
+        from pinecone.db_data.index import Index
+    except ImportError:
+        from typing import Any as Index  # type: ignore[no-redef]
 
 logger = logging.getLogger(__name__)
 

@@ -145,7 +145,7 @@ GROQ_API_KEY = "your_key"
 GROQ_MODEL = "llama-3.1-8b-instant"
 HUGGINGFACE_API_KEY = "your_key"
 PINECONE_API_KEY = "your_key"
-PINECONE_INDEX_NAME = "rag-chatbot"
+PINECONE_INDEX_NAME = "rag1"
 # Optional:
 LANGFUSE_PUBLIC_KEY = "your_key"
 LANGFUSE_SECRET_KEY = "your_key"
